@@ -1,0 +1,25 @@
+# Emacs
+network-security.data
+.org-id-locations
+ac-comphist.dat
+auto-save-list/
+smex-items
+%backup%~
+bookmarks
+eln-cache
+secret.el
+transient
+projects
+session*
+history
+recentf
+recentf~
+eshell
+games
+tramp
+elpa
+url
+mason/
+tree-sitter/
+places
+dape-breakpoints
