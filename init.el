@@ -51,6 +51,8 @@
 (setq custom-file (locate-user-emacs-file "custom-vars.el"))
 (load custom-file 'noerror 'nomessage)
 
+(delete-selection-mode 1)
+
 ;; Don't pop up UI dialogs when prompting
 (setq use-dialog-box nil)
 
@@ -71,7 +73,36 @@
 (global-set-key (kbd "C-S-p") (lambda () (interactive) (forward-line -1)))
 (global-set-key (kbd "C-S-n") (lambda () (interactive) (forward-line 1)))
 
+(setq project-vc-extra-root-markers
+      '("*.sln" "*.slnx" "*.csproj" "go.mod"))
 
+;;;; Custom functions
+
+(defun my-nearest-csproj ()
+  "Find the .csproj closest to the current buffer."
+  (let ((dir (locate-dominating-file
+              (or (buffer-file-name) default-directory)
+              (lambda (d) (directory-files d nil "\\.csproj\\'")))))
+    (when dir
+      (car (directory-files dir t "\\.csproj\\'")))))
+
+(defun my-dotnet-program ()
+  "Find the built Debug dll matching the nearest .csproj, or error clearly."
+  (let* ((csproj (my-nearest-csproj))
+         (_ (unless csproj (user-error "No .csproj found above %s" default-directory)))
+         (proj-dir (file-name-directory csproj))
+         (name (file-name-base csproj))
+         (candidates (seq-filter
+                      (lambda (dll)
+                        (and (string-match-p "/bin/Debug/" dll)
+                             (string= (file-name-base dll) name)
+                             (file-exists-p (concat (file-name-sans-extension dll)
+                                                     ".runtimeconfig.json"))))
+                      (directory-files-recursively proj-dir "\\.dll$")))
+         (newest (car (sort candidates
+                             (lambda (a b) (file-newer-than-file-p a b))))))
+    (or newest
+        (user-error "No built Debug dll for %s — build the project first" name))))
 
 ;;;; Tree-Sitter
 (use-package treesit-auto
@@ -91,6 +122,9 @@
   :diminish which-key-mode
   :config
   (setq which-key-idle-delay 0.3))
+
+(use-package vterm
+    :ensure t)
 
 ;;;; LSP
 
@@ -172,6 +206,7 @@
   (dape-buffer-window-arrangement 'right)
   
   :config
+  (message "HEYOOOOO")
   ;; Pulse source line (performance hit)
   (add-hook 'dape-display-source-hook #'pulse-momentary-highlight-one-line)
 
@@ -180,12 +215,60 @@
 
   ;; Kill compile buffer on build success
   (add-hook 'dape-compile-hook #'kill-buffer)
-  )
+
+ 
+  (add-to-list 'dape-configs
+             `(dotnetdbg
+               modes (csharp-mode csharp-ts-mode)
+               ensure dape-ensure-command
+               command "netcoredbg"
+               command-args ("--interpreter=vscode")
+               command-cwd (lambda () (project-root (project-current)))
+               compile (lambda () (concat "dotnet build \""
+                                           (file-name-directory (my-nearest-csproj))
+                                           "\""))
+               :type "coreclr"
+               :request "launch"
+               :console "externalTerminal"
+               :internalConsoleOptions "neverOpen"
+               :suppressJITOptimizations t
+               :requireExactSource nil
+               :justMyCode t
+               :cwd (lambda () (project-root (project-current)))
+               :program (lambda () (my-dotnet-program))))
+  
+)
 
 ;; For a more ergonomic Emacs and `dape' experience
 (use-package repeat
   :custom
   (repeat-mode +1))
+
+;;; GPT
+
+(use-package gptel
+  :ensure t
+  :bind (("C-c g g" . gptel)                 ;; open a chat buffer
+         ("C-c g s" . gptel-send)             ;; send region/prompt
+         ("C-c g m" . gptel-menu)             ;; transient menu (model, params, etc.)
+         ("C-c g r" . gptel-rewrite))         ;; rewrite region in place
+  :config
+  ;; Define the local llama.cpp server as a backend
+  (gptel-make-openai "llama-cpp-local"
+    :host "localhost:8080"
+    :protocol "http"
+    :endpoint "/v1/chat/completions"
+    :stream t
+    :models '("qwen2.5-coder-14b-instruct"))  ;; name is cosmetic, server ignores it
+
+  ;; Make it the default backend/model on startup
+  (setq gptel-model "qwen2.5-coder-14b-instruct"
+        gptel-backend (gptel-get-backend "llama-cpp-local"))
+
+  ;; Optional: directory-local or per-project system prompt for C#/.NET work
+  (setq gptel-directives
+        '((default . "You are a terse, precise coding assistant. Prefer idiomatic solutions and avoid unnecessary complexity.")
+          (csharp . "You are an expert C#/.NET assistant. Follow idiomatic C# conventions, favor minimal solutions, and call out anti-patterns when relevant."))))
 
 ;; Left and right side windows occupy full frame height
 (use-package emacs
