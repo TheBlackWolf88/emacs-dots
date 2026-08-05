@@ -4,6 +4,14 @@
 
 ;;; Code:
 
+(setq url-proxy-services '(("https" . "127.0.0.1:3128")
+                          ("http" . "127.0.0.1:3128")))
+
+(let ((brew-bin "/home/linuxbrew/.linuxbrew/bin"))
+  (when (file-directory-p brew-bin)
+    (setenv "PATH" (concat brew-bin ":" (getenv "PATH")))
+    (add-to-list 'exec-path brew-bin)))
+
 ;;;; Use-package
 (require 'package)
 (require 'use-package-ensure)
@@ -74,7 +82,35 @@
 (global-set-key (kbd "C-S-n") (lambda () (interactive) (forward-line 1)))
 
 (setq project-vc-extra-root-markers
-      '("*.sln" "*.slnx" "*.csproj" "go.mod"))
+      '("*.sln" "*.slnx" "go.mod"))
+
+(add-hook 'prog-mode-hook (lambda () (setq truncate-lines t)))
+
+(defun custom-kill-buffer-fn (&optional arg)
+"When called with a prefix argument -- i.e., C-u -- kill all interesting
+buffers -- i.e., all buffers without a leading space in the buffer-name.
+When called without a prefix argument, kill just the current buffer
+-- i.e., interesting or uninteresting."
+(interactive "P")
+  (cond
+    ((and (consp arg) (equal arg '(4)))
+      (mapc
+        (lambda (x)
+          (let ((name (buffer-name x)))
+            (unless (eq ?\s (aref name 0))
+              (kill-buffer x))))
+        (buffer-list)))
+    (t
+     (kill-buffer (current-buffer)))))
+
+(global-set-key [f5] 'custom-kill-buffer-fn)
+
+(setq create-lockfiles nil)
+
+(use-package exec-path-from-shell
+  :config
+  (exec-path-from-shell-initialize)
+  (exec-path-from-shell-copy-env "DOTNET_ROOT"))
 
 ;;;; Custom functions
 
@@ -124,7 +160,19 @@
   (setq which-key-idle-delay 0.3))
 
 (use-package vterm
-    :ensure t)
+  :ensure t)
+
+(use-package magit
+  :ensure t
+  :bind (("C-x g" . magit-status)
+         ("C-x M-g" . magit-dispatch))
+  :custom
+  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1)
+  (magit-diff-refine-hunk t)          ; word-level diff highlighting in current hunk
+  (magit-save-repository-buffers 'dontask))
+
+(use-package markdown-mode
+  :ensure t)
 
 ;;;; LSP
 
@@ -168,6 +216,19 @@
 (add-to-list 'auto-mode-alist '("\\.csproj\\'" . nxml-mode))
 (add-to-list 'auto-mode-alist '("\\.slnx\\'" . nxml-mode))
 
+ ;;; Avalonia
+ 
+ (define-derived-mode axaml-mode nxml-mode "AXAML"
+   "Major mode for Avalonia AXAML files, tree-sitter XML backend.")
+ 
+ (add-to-list 'auto-mode-alist '("\\.axaml\\'" . axaml-mode))
+ 
+ (with-eval-after-load 'eglot
+   (add-to-list 'eglot-server-programs
+                '(axaml-mode . ("avalonia-ls"))))
+ 
+ (add-hook 'axaml-mode-hook #'eglot-ensure)
+
 ;;;; Completion / UI
 
 (use-package vertico
@@ -188,6 +249,50 @@
   (completion-styles '(orderless basic))
   (completion-category-overrides '((file (styles partial-completion))))
   (completion-pcm-leading-wildcard t))
+
+;;; Consult
+
+(use-package consult
+  :ensure t
+  :init
+  (setq xref-show-xrefs-function #'consult-xref
+        xref-show-definitions-function #'consult-xref)
+  :config
+  (setq consult-preview-key '(:debounce 0.2 any))
+  (setq consult-narrow-key "<"))
+
+(use-package consult-eglot
+  :ensure t
+  :after (consult eglot))
+
+(define-prefix-command 'consult-map)
+(global-set-key (kbd "C-c C-s") 'consult-map)
+
+(define-key consult-map (kbd "p")
+            (lambda ()
+              (interactive)
+                (consult-find (project-root (project-current t)))))
+
+(define-key consult-map (kbd "r")
+            (lambda ()
+              (interactive)
+              (consult-ripgrep (project-root (project-current t)))))
+
+(define-key consult-map (kbd "s")
+            (lambda ()
+              (interactive)
+              (if (bound-and-true-p eglot--managed-mode)
+                  (consult-eglot-symbols)
+                (consult-imenu))))
+
+(with-eval-after-load 'which-key
+  (which-key-add-key-based-replacements
+    "C-c C-s"   "search"
+    "C-c C-s p" "find file"
+    "C-c C-s r" "ripgrep"
+    "C-c C-s s" "symbols"))
+
+(provide 'consult-file-search-prefix)
 
 ;;;; Dape / Debugger
 
