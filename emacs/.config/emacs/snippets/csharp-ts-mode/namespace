@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: Namespace
+# key: namespace
+# --
+namespace `(my/csharp-namespace-from-file)`;
+
+$0

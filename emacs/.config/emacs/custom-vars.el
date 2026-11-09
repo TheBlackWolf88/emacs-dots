@@ -4,10 +4,12 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(company consult consult-eglot corfu dape exec-path-from-shell
-	     flycheck gptel lsp-ivy lsp-pyright lsp-ui mason
-	     rainbow-delimiters treesit-auto vertico vterm)))
+ '(custom-safe-themes
+   '("ac068453acfa7c3cedd4ad1db7a49230657e5e9c8e2fe4ec287cffc2b8310384"
+     default))
+ '(package-selected-packages nil)
+ '(package-vc-selected-packages
+   '((bicep-ts-mode :url "https://github.com/josteink/bicep-ts-mode"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

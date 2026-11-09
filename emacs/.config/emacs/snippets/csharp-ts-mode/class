@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: Class
+# key: class
+# --
+public class ${1:`(file-name-base (buffer-file-name))`}
+{
+    $0
+}
