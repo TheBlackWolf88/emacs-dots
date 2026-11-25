@@ -16,6 +16,7 @@
 (require 'init-completion)
 (require 'init-dev)
 (require 'init-org)
+(require 'init-latex)
 (require 'angular)
 (when my/work-p
   (require 'init-ai)

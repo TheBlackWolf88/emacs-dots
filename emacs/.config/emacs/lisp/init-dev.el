@@ -68,7 +68,8 @@
 
 (mason-setup
   (dolist (pkg '("basedpyright" "clangd" "rust_analyzer" "gopls" "ruff"
-                 "csharp-language-server" "roslyn-language-server" "netcoredbg"))
+                 "csharp-language-server" "roslyn-language-server" "netcoredbg"
+                 "texlab"))
     (unless (mason-installed-p pkg)
       (ignore-errors (mason-install pkg)))))
 
